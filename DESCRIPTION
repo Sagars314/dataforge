@@ -1,14 +1,44 @@
 Package: dataforge
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: Simulate Structured Data for Factorial and Mixed Designs
+Version: 0.1.0
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Sagar", "S", email = "sagars314@protom.me", role = c("aut", "cre"))
+Description: Provides a comprehensive toolkit for simulating structured datasets 
+    with user-specified means, standard deviations, and correlation structures. 
+    Supports factorial designs (between-subjects, within-subjects, mixed), 
+    correlated multivariate normal data, simulation from existing data frames, 
+    mixed effects structures, contrast coding, distribution conversions, 
+    and Likert-scale generation. Designed for researchers, educators, and data 
+    scientists who need reproducible synthetic datasets for power analysis, 
+    teaching, or testing statistical workflows.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Suggests: 
-    testthat (>= 3.0.0)
+Depends: 
+    R (>= 3.6.0)
+Imports:
+    MASS,
+    Matrix,
+    dplyr,
+    tidyr,
+    tidyselect,
+    ggplot2,
+    purrr,
+    rlang,
+    glue,
+    lifecycle,
+    jsonlite,
+    stats,
+    utils,
+    methods
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    cowplot,
+    lme4
+VignetteBuilder: knitr
 Config/testthat/edition: 3
+URL: https://github.com/Sagars314/dataforge
+BugReports: https://github.com/Sagars314/dataforge/issues

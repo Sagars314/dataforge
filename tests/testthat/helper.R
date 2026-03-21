@@ -1,4 +1,2 @@
 library(testthat)
 library(dataforge)
-
-test_check("dataforge")

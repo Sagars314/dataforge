@@ -1,0 +1,311 @@
+---
+title: "Getting Started with dataforge"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with dataforge}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>",
+  fig.width  = 7,
+  fig.height = 4
+)
+library(dataforge)
+set.seed(42)
+```
+
+## Overview
+
+`dataforge` makes it easy to simulate structured datasets with precisely
+specified statistical properties. Whether you need data for power analysis,
+a reproducible teaching example, or unit tests for an analysis pipeline,
+`dataforge` gives you a clean, pipe-friendly API.
+
+```{r quick}
+library(dataforge)
+```
+
+---
+
+## 1. Correlated normal variables
+
+The simplest entry point is `rnorm_multi()`, which generates a data frame
+of correlated normal variables.
+
+```{r rnorm-multi}
+df <- rnorm_multi(
+  n    = 200,
+  vars = c("reaction_time", "accuracy", "fatigue"),
+  mu   = c(350, 0.85, 3.0),
+  sd   = c(50,  0.10, 0.8),
+  r    = c(0.4, -0.3, -0.5)   # lower-triangle: rt-acc, rt-fat, acc-fat
+)
+
+round(cor(df), 2)
+```
+
+Set `empirical = TRUE` when you want the sample statistics to match the
+targets *exactly* — useful for demonstrations:
+
+```{r rnorm-empirical}
+df2 <- rnorm_multi(100, vars = c("x","y"), mu = c(0,5),
+                   sd = c(1, 2), r = 0.7, empirical = TRUE)
+colMeans(df2)
+apply(df2, 2, sd)
+cor(df2)[1,2]
+```
+
+---
+
+## 2. Factorial designs with `forge_design()`
+
+`forge_design()` is the main workhorse for factorial simulation.
+Specify `within` and/or `between` factor lists, then provide means and SDs
+(either as scalars or structured vectors/data frames).
+
+### Between-subjects only
+
+```{r between}
+df_between <- forge_design(
+  between = list(drug = c("placebo", "low_dose", "high_dose")),
+  n  = 40,
+  mu = c(5.0, 5.8, 7.2),
+  sd = 1.5,
+  plot = FALSE
+)
+get_params(df_between, between = "drug", dv = "y")
+```
+
+### Within-subjects only
+
+```{r within}
+df_within <- forge_design(
+  within = list(time = c("baseline", "week4", "week8", "week12")),
+  n  = 50,
+  mu = c(20, 18, 15, 13),
+  sd = 4,
+  r  = 0.6,    # common correlation between time points
+  plot = FALSE
+)
+head(df_within[, 1:6])
+```
+
+### Mixed (between × within) design
+
+```{r mixed}
+df_mixed <- forge_design(
+  within  = list(time = c("pre", "post")),
+  between = list(condition = c("control", "treatment")),
+  n  = 30,
+  mu = data.frame(
+    control   = c(50, 52),
+    treatment = c(50, 62),
+    row.names = c("pre","post")
+  ),
+  sd   = 10,
+  r    = 0.6,
+  long = TRUE,
+  plot = FALSE
+)
+head(df_mixed)
+```
+
+Plotting the design is built in:
+
+```{r plot, fig.cap="Violin plot of the mixed design"}
+plot_design(df_mixed, geom = "violin")
+```
+
+---
+
+## 3. Simulate from existing data with `forge_df()`
+
+`forge_df()` estimates the empirical covariance structure of an existing
+data frame and simulates new data that matches it.
+
+```{r forge-df}
+new_iris <- forge_df(iris, n = 100, between = "Species")
+
+# Compare original and simulated means
+original <- aggregate(Sepal.Length ~ Species, iris, mean)
+simulated <- aggregate(Sepal.Length ~ Species, new_iris, mean)
+data.frame(Species  = original$Species,
+           original = round(original$Sepal.Length, 2),
+           simulated = round(simulated$Sepal.Length, 2))
+```
+
+---
+
+## 4. Building mixed effects structures
+
+For cross-classified or nested designs, use the `add_*` pipeline:
+
+```{r mixed-effects}
+set.seed(1)
+d <- add_random(subject = 30) |>
+  add_within(.by = "subject", item = paste0("I", 1:10)) |>
+  add_between(.by = "subject",
+              group = c("control","treatment"),
+              .prob = c(0.5, 0.5)) |>
+  add_ranef(.by = "subject", subj_int = 1.5) |>
+  add_ranef(.by = "item",    item_int  = 0.8)
+
+# Add a residual and compute DV
+d$residual <- rnorm(nrow(d), 0, 1)
+d$y <- 5 + (d$group == "treatment") * 1.5 + d$subj_int + d$item_int + d$residual
+head(d[, c("subject","item","group","y")])
+```
+
+### Nested random effects
+
+```{r nested}
+school_data <- add_random(school = 5) |>
+  add_random(class = 4, .nested_in = "school") |>
+  add_random(student = 20, .nested_in = "class")
+
+cat("Total students:", nrow(school_data), "\n")  # 5*4*20 = 400
+```
+
+---
+
+## 5. Contrast coding
+
+`dataforge` provides a complete set of contrast coding helpers:
+
+```{r contrasts}
+d <- data.frame(
+  condition = factor(rep(c("A","B","C"), each = 20)),
+  y = c(rnorm(20, 5), rnorm(20, 7), rnorm(20, 9))
+)
+
+# Treatment coding (A is reference)
+d_coded <- add_contrast(d, "condition", contrasts = "treatment", base = 1)
+head(d_coded)
+
+# Inspect the coding matrix directly
+contr_code_helmert(c("none","low","medium","high"))
+```
+
+---
+
+## 6. Non-normal distributions
+
+`rmulti()` uses the NORTA method to simulate correlated non-normal data:
+
+```{r rmulti}
+df_mixed_dist <- rmulti(
+  n      = 300,
+  dist   = c("norm", "pois", "binom", "beta"),
+  params = list(
+    list(mu = 5, sd = 1),
+    list(lambda = 3),
+    list(size = 10, prob = 0.4),
+    list(alpha = 2, beta = 5)
+  ),
+  r = 0.4,
+  seed = 1
+)
+head(df_mixed_dist)
+sapply(df_mixed_dist, summary)
+```
+
+### Likert-scale data
+
+```{r likert}
+# 4-item 5-point Likert scale, moderately correlated
+survey <- rlikert(n = 200, items = 4, likert_n = 5,
+                  mu = c(3.5, 3.2, 4.0, 2.8),
+                  sd = 0.8,
+                  r  = 0.5,
+                  seed = 1)
+head(survey)
+sapply(survey, table)
+```
+
+---
+
+## 7. Distribution conversions
+
+Any normal vector can be converted to a target distribution via the
+`norm2*` family:
+
+```{r conversions}
+x <- rnorm(500)
+
+tibble_like <- data.frame(
+  normal   = x,
+  beta     = norm2beta(x, alpha = 2, beta = 8),
+  poisson  = norm2pois(x, lambda = 5),
+  uniform  = norm2unif(x, min = 1, max = 10),
+  truncated = norm2trunc(x, min = 0, max = Inf)
+)
+sapply(tibble_like, function(v) round(range(v), 2))
+```
+
+---
+
+## 8. Messy data
+
+Introduce realistic data quality issues:
+
+```{r messy}
+df_clean <- forge_design(between = list(g = c("A","B")),
+                         n = 60, mu = c(0, 1), sd = 1, plot = FALSE, seed = 1)
+
+df_messy <- df_clean |>
+  make_missing(cols = "y", prop = 0.10) |>
+  add_outliers(cols = "y", prop = 0.03) |>
+  add_duplicates(n_dups = 5)
+
+cat("Original rows:", nrow(df_clean), "\n")
+cat("Messy rows:   ", nrow(df_messy), "\n")
+cat("NAs in y:     ", sum(is.na(df_messy$y)), "\n")
+```
+
+---
+
+## 9. Reshaping
+
+```{r reshape}
+# Wide to long
+df_wide <- forge_design(within = list(t = c("T1","T2","T3")), n = 20,
+                        mu = c(5, 6, 7), sd = 1, r = .5,
+                        plot = FALSE, seed = 1)
+df_long <- wide2long(df_wide, within_cols = c("T1","T2","T3"),
+                     names_to = "timepoint", values_to = "score")
+
+# Long back to wide
+df_w2 <- long2wide(df_long, id_cols = "id",
+                   names_from = "timepoint", values_from = "score")
+dim(df_wide); dim(df_long); dim(df_w2)
+```
+
+---
+
+## 10. Global options
+
+```{r options}
+# Suppress auto-plotting globally
+dataforge_options(plot = FALSE, verbose = FALSE)
+
+# Change separator for compound column names
+dataforge_options(sep = ".")
+
+# Check current settings
+dataforge_options()
+
+# Reset
+dataforge_options(plot = TRUE, verbose = TRUE, sep = "_")
+```
+
+---
+
+## Session info
+
+```{r session}
+sessionInfo()
+```

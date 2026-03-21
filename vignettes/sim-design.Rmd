@@ -1,0 +1,283 @@
+---
+title: "Simulate by Design: Factorial Experiments"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulate by Design: Factorial Experiments}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>",
+  fig.width = 7, fig.height = 4
+)
+library(dataforge)
+dataforge_options(plot = FALSE)
+set.seed(42)
+```
+
+## Introduction
+
+This vignette walks through the full capabilities of `forge_design()` for
+simulating factorial experiments — from simple one-factor designs through
+complex multi-factor mixed designs with per-cell specifications.
+
+---
+
+## The `forge_design()` parameter system
+
+`forge_design()` accepts five key statistical parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| `within`  | Named list of within-subject factors and their levels |
+| `between` | Named list of between-subject factors and their levels |
+| `n`       | Sample size(s) per between-cell |
+| `mu`      | Cell means |
+| `sd`      | Cell standard deviations |
+| `r`       | Correlation among within-subject measurements |
+
+The `mu` and `sd` parameters accept:
+- A **scalar** — the same value for all cells
+- A **vector** — one value per within-level (recycled across between-groups)
+- A **data frame** — rows are within-levels, columns are between-groups
+
+---
+
+## 1. One-way between-subjects design
+
+```{r one-way}
+df <- forge_design(
+  between = list(dose = c("0mg", "10mg", "50mg", "100mg")),
+  n  = 25,
+  mu = c(5.0, 5.5, 6.8, 7.9),
+  sd = 1.2
+)
+
+get_params(df, between = "dose", dv = "y")
+```
+
+```{r one-way-plot, fig.cap="One-way dose effect"}
+plot_design(df, geom = "box")
+```
+
+---
+
+## 2. Two-way between-subjects (2×2) design
+
+```{r two-way}
+df_2x2 <- forge_design(
+  between = list(
+    therapy  = c("CBT", "medication"),
+    severity = c("mild", "severe")
+  ),
+  n  = 30,
+  mu = c(65, 55, 70, 45),   # CBT-mild, CBT-severe, med-mild, med-severe
+  sd = 10
+)
+
+get_params(df_2x2, between = c("therapy", "severity"), dv = "y")
+```
+
+```{r two-way-plot, fig.cap="Therapy × Severity interaction"}
+plot_design(df_2x2, x = "severity", color = "therapy", geom = "box")
+```
+
+---
+
+## 3. Repeated-measures (within-subjects) design
+
+```{r rm}
+# 4-week longitudinal study
+df_rm <- forge_design(
+  within = list(week = c("baseline", "wk2", "wk4", "wk6")),
+  n  = 60,
+  mu = c(100, 92, 85, 80),
+  sd = 15,
+  r  = 0.7     # high temporal autocorrelation
+)
+
+# Check correlations between time points
+w_cols <- c("baseline", "wk2", "wk4", "wk6")
+round(cor(df_rm[, w_cols]), 2)
+```
+
+```{r rm-long}
+df_rm_long <- wide2long(df_rm, within_cols = w_cols,
+                        names_to = "week", values_to = "score")
+plot_design(df_rm_long, x = "week", geom = "line", dv = "score")
+```
+
+---
+
+## 4. Mixed factorial design (between × within)
+
+```{r mixed}
+df_mixed <- forge_design(
+  between = list(group = c("control", "treatment")),
+  within  = list(time  = c("pre", "mid", "post")),
+  n  = 40,
+  mu = data.frame(
+    control   = c(50, 51, 52),
+    treatment = c(50, 55, 63),
+    row.names = c("pre", "mid", "post")
+  ),
+  sd = 8,
+  r  = 0.65,
+  long = TRUE
+)
+
+head(df_mixed, 8)
+```
+
+```{r mixed-plot, fig.cap="Group × Time interaction"}
+plot_design(df_mixed, x = "time", color = "group", geom = "line", dv = "y")
+```
+
+---
+
+## 5. Three-factor design (2×2×3)
+
+```{r three-factor}
+df_3f <- forge_design(
+  between = list(
+    sex      = c("M", "F"),
+    training = c("novice", "expert")
+  ),
+  within = list(task = c("easy", "medium", "hard")),
+  n  = 20,
+  # mu: 3 within-levels × 4 between-cells (MN, ME, FN, FE)
+  mu = data.frame(
+    M.novice  = c(90, 75, 55),
+    M.expert  = c(95, 88, 80),
+    F.novice  = c(88, 73, 52),
+    F.expert  = c(93, 87, 81),
+    row.names = c("easy","medium","hard")
+  ),
+  sd = 8, r = 0.5, long = TRUE
+)
+
+cat("Rows:", nrow(df_3f), "\n")  # 20*4*3 = 240
+aggregate(y ~ sex + training + task, data = df_3f,
+          FUN = function(x) round(mean(x), 1))
+```
+
+---
+
+## 6. Unequal cell sizes
+
+Pass a named vector to `n` to specify different sizes per between-cell:
+
+```{r unequal}
+df_unequal <- forge_design(
+  between = list(region = c("north", "south", "east", "west")),
+  n  = c(north = 50, south = 40, east = 60, west = 35),
+  mu = c(5.1, 4.8, 5.5, 4.9),
+  sd = 1.0
+)
+table(df_unequal$region)
+```
+
+---
+
+## 7. Per-cell standard deviations (heteroscedasticity)
+
+```{r hetero}
+df_hetero <- forge_design(
+  between = list(group = c("A", "B", "C")),
+  n  = 50,
+  mu = c(10, 10, 10),    # equal means
+  sd = c(1,   3,   6)   # very different spreads
+)
+aggregate(y ~ group, data = df_hetero,
+          FUN = function(x) round(sd(x), 2))
+```
+
+---
+
+## 8. Specifying correlation structures
+
+### Uniform correlation (scalar `r`)
+
+```{r r-scalar}
+df_r <- forge_design(within = list(item = paste0("I", 1:5)),
+                     n = 80, mu = 0, sd = 1, r = 0.4)
+round(cor(df_r[, paste0("I", 1:5)]), 2)
+```
+
+### Lower-triangle vector
+
+```{r r-triangle}
+# 3 items: r(I1,I2)=.6, r(I1,I3)=.3, r(I2,I3)=.5
+df_rt <- forge_design(within = list(item = c("I1","I2","I3")),
+                      n = 100, mu = 0, sd = 1,
+                      r = c(.6, .3, .5))
+round(cor(df_rt[, c("I1","I2","I3")]), 2)
+```
+
+### Full correlation matrix
+
+```{r r-matrix}
+R <- matrix(c(1.0, 0.8, 0.3,
+              0.8, 1.0, 0.5,
+              0.3, 0.5, 1.0), 3, 3)
+df_rm2 <- forge_design(within = list(v = c("V1","V2","V3")),
+                       n = 100, mu = 0, sd = 1, r = R)
+round(cor(df_rm2[, c("V1","V2","V3")]), 2)
+```
+
+---
+
+## 9. Checking and inspecting designs
+
+```{r check}
+# Print design summary before simulating
+check_design(
+  within  = list(time = c("T1","T2","T3")),
+  between = list(group = c("A","B"), sex = c("M","F")),
+  n = 20
+)
+```
+
+```{r get-params}
+df <- forge_design(between = list(group = c("A","B","C")),
+                   n = 50, mu = c(5, 6, 7), sd = c(1, 1.5, 2))
+get_params(df, between = "group", dv = "y")
+```
+
+---
+
+## 10. Converting to long format
+
+`forge_design(..., long = TRUE)` returns data in long format, but you can
+also reshape after the fact:
+
+```{r reshape}
+df_wide <- forge_design(
+  within  = list(emotion = c("happy","sad","angry")),
+  between = list(age_group = c("young","old")),
+  n = 25, mu = 0, sd = 1, r = .4
+)
+
+df_long <- wide2long(df_wide,
+                     within_cols = c("happy","sad","angry"),
+                     names_to    = "emotion",
+                     values_to   = "rating")
+
+head(df_long)
+nrow(df_long)  # 50 subjects * 3 emotions = 150 rows
+```
+
+---
+
+## Summary
+
+| Design type | Key parameters |
+|-------------|---------------|
+| Between only | `between`, `n`, `mu`, `sd` |
+| Within only  | `within`, `n`, `mu`, `sd`, `r` |
+| Mixed        | `within`, `between`, `n`, `mu`, `sd`, `r` |
+| Unequal `n`  | `n = c(g1 = n1, g2 = n2, ...)` |
+| Per-cell SD  | `sd` as vector aligned with between-cells |
+| Full cormat  | `r` as an `n_within × n_within` matrix |

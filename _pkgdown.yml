@@ -1,0 +1,112 @@
+url: https://example.github.io/dataforge/
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+
+home:
+  title: "dataforge — Simulate Structured Data"
+  description: >
+    A comprehensive toolkit for simulating structured datasets with
+    user-specified statistical properties. Supports factorial designs,
+    mixed effects structures, distribution conversions, and more.
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/getting-started.html
+    articles:
+      text: Articles
+      menu:
+        - text: Getting Started
+          href: articles/getting-started.html
+        - text: Simulate by Design
+          href: articles/sim-design.html
+        - text: Mixed Effects Simulation
+          href: articles/mixed-effects.html
+
+reference:
+  - title: "Core simulation"
+    desc: "Main functions for simulating structured datasets"
+    contents:
+      - forge_design
+      - forge_df
+      - rnorm_multi
+      - rnorm_pre
+      - rmulti
+
+  - title: "Mixed effects"
+    desc: "Build up mixed effects data structures using pipes"
+    contents:
+      - add_random
+      - add_within
+      - add_between
+      - add_ranef
+      - add_recode
+      - forge_mixed_cc
+
+  - title: "Contrast coding"
+    desc: "Add contrast-coded columns to data frames"
+    contents:
+      - add_contrast
+      - starts_with("contr_code_")
+
+  - title: "Likert distributions"
+    desc: "Simulate and work with Likert-scale data"
+    contents:
+      - rlikert
+      - dlikert
+      - plikert
+      - qlikert
+      - norm2likert
+
+  - title: "Distribution conversions"
+    desc: "Convert between normal and other distributions (NORTA)"
+    contents:
+      - starts_with("norm2")
+      - ends_with("2norm")
+
+  - title: "Data quality"
+    desc: "Introduce realistic data quality issues"
+    contents:
+      - make_missing
+      - messy
+      - add_duplicates
+      - add_outliers
+
+  - title: "Reshaping"
+    desc: "Convert between wide and long formats"
+    contents:
+      - wide2long
+      - long2wide
+
+  - title: "Plotting"
+    contents:
+      - plot_design
+
+  - title: "Utilities"
+    desc: "Helper functions for design management and ID generation"
+    contents:
+      - make_id
+      - is_pos_def
+      - unique_pairs
+      - cormat_from_triangle
+      - get_design
+      - check_design
+      - get_params
+      - check_sim_stats
+      - dataforge_options
+
+  - title: "Built-in datasets"
+    contents:
+      - load_exam_scores
+      - load_survey_responses
+
+news:
+  releases:
+    - text: "dataforge 0.1.0"
+      href: news/index.html

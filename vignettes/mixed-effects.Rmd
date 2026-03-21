@@ -1,0 +1,239 @@
+---
+title: "Mixed Effects Data Simulation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Mixed Effects Data Simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      fig.width = 7, fig.height = 4)
+library(dataforge)
+dataforge_options(plot = FALSE, verbose = FALSE)
+set.seed(42)
+```
+
+## Introduction
+
+This vignette demonstrates how to use `dataforge`'s pipe-friendly
+`add_*` family to build up complex mixed effects data generating
+processes (DGPs) — the kind you'd use to simulate data for lme4 models.
+
+---
+
+## 1. Subjects-only random intercept model
+
+```{r simple-re}
+set.seed(1)
+d <- add_random(subject = 40) |>
+  add_between(.by = "subject",
+              condition = c("control", "treatment")) |>
+  add_ranef(.by = "subject", u0 = 1.2) |>
+  within({
+    residual <- rnorm(length(subject), 0, 1)
+    y <- 5 + 1.5 * (condition == "treatment") + u0 + residual
+  })
+
+head(d)
+```
+
+Fitting the model back:
+
+```{r fit-simple, eval=requireNamespace("lme4", quietly=TRUE)}
+library(lme4)
+m <- lmer(y ~ condition + (1 | subject), data = d)
+summary(m)$coefficients
+```
+
+---
+
+## 2. Cross-classified design (subjects × items)
+
+```{r cross-classified}
+set.seed(2)
+d_cc <- forge_mixed_cc(
+  subj_n     = 30,
+  item_n     = 20,
+  grand_mean = 500,
+  subj_sd    = 80,
+  item_sd    = 40,
+  error_sd   = 60
+)
+head(d_cc)
+
+# Random effect variance components
+cat("Subject SD:", round(sd(tapply(d_cc$subj_re, d_cc$subj, mean)), 1), "\n")
+cat("Item SD:   ", round(sd(tapply(d_cc$item_re, d_cc$item, mean)), 1), "\n")
+```
+
+---
+
+## 3. Nested design (students within classes within schools)
+
+```{r nested}
+set.seed(3)
+school_data <- add_random(school = 8) |>
+  add_random(class = 4, .nested_in = "school") |>
+  add_random(student = sample(15:25, 32, replace = TRUE),
+             .nested_in = "class") |>
+  add_between(.by = "school",
+              school_type = c("public", "private"),
+              .prob = c(0.75, 0.25)) |>
+  add_ranef(.by = "school", school_int = 5.0) |>
+  add_ranef(.by = "class",  class_int  = 3.0) |>
+  within({
+    residual <- rnorm(length(student), 0, 8)
+    score <- 65 +
+             3 * (school_type == "private") +
+             school_int + class_int + residual
+  })
+
+cat("Total students:", nrow(school_data), "\n")
+cat("Mean score by school type:\n")
+print(tapply(school_data$score, school_data$school_type, mean))
+```
+
+---
+
+## 4. Random slopes model
+
+```{r random-slopes}
+set.seed(4)
+# Correlated random intercept and slope
+d_rs <- add_random(subject = 40) |>
+  add_within(.by = "subject",
+             trial = as.character(1:20)) |>
+  add_between(.by = "subject",
+              group = c("A", "B")) |>
+  add_ranef(.by = "subject",
+            u0 = 1.5,   # random intercept SD
+            u1 = 0.4,   # random slope SD
+            .cors = 0.3) |>  # intercept-slope correlation
+  within({
+    trial_num <- as.numeric(trial)
+    residual  <- rnorm(length(subject), 0, 0.8)
+    y <- 10 +
+         0.5 * trial_num +
+         1.0 * (group == "B") +
+         u0 +
+         u1 * trial_num +
+         residual
+  })
+
+head(d_rs)
+```
+
+---
+
+## 5. Longitudinal design with attrition
+
+Build a full longitudinal dataset then introduce realistic dropout:
+
+```{r attrition}
+set.seed(5)
+d_long <- add_random(subject = 100) |>
+  add_within(.by = "subject",
+             wave = c("w1","w2","w3","w4","w5")) |>
+  add_between(.by = "subject",
+              arm = c("placebo","active"),
+              .prob = c(.5,.5)) |>
+  add_ranef(.by = "subject", u0 = 2.0) |>
+  within({
+    wave_num <- as.numeric(factor(wave, levels=c("w1","w2","w3","w4","w5")))
+    residual <- rnorm(length(subject), 0, 1.5)
+    y <- 20 +
+         (arm == "active") * wave_num * 0.8 +
+         u0 + residual
+  })
+
+# Introduce 20% dropout increasing with wave
+set.seed(6)
+d_long$dropout_prob <- 0.04 * as.numeric(factor(d_long$wave))
+d_long$dropped <- runif(nrow(d_long)) < d_long$dropout_prob
+d_observed <- d_long[!d_long$dropped, ]
+
+cat("Complete rows:", nrow(d_long), "\n")
+cat("After dropout:", nrow(d_observed), "\n")
+cat("Retention by wave:\n")
+print(table(d_observed$wave))
+```
+
+---
+
+## 6. Adding contrasts to a mixed design
+
+After building a mixed effects dataset you can add contrast codes for
+use in `lmer` formulas:
+
+```{r contrasts-lmer}
+set.seed(7)
+d_c <- add_random(subject = 60) |>
+  add_within(.by = "subject",
+             stimulus = c("word","nonword","pseudoword")) |>
+  add_between(.by = "subject", skill = c("low","high")) |>
+  add_ranef(.by = "subject", u0 = 50) |>
+  within({
+    residual <- rnorm(length(subject), 0, 30)
+    rt <- 600 +
+          50 * (stimulus == "nonword") +
+          30 * (stimulus == "pseudoword") -
+          40 * (skill == "high") +
+          u0 + residual
+  })
+
+# Add sum contrasts for stimulus
+d_c <- add_contrast(d_c, "stimulus", contrasts = "sum")
+# Add treatment contrast for skill
+d_c <- add_contrast(d_c, "skill", contrasts = "treatment", base = "low")
+
+head(d_c[, c("subject","stimulus","skill","rt",
+             "nonword.sum","pseudoword.sum","high.vs.low")])
+```
+
+---
+
+## 7. Complete DGP: 2x2 mixed model for power analysis
+
+Here's a complete workflow to simulate data for a power analysis:
+
+```{r power-analysis}
+simulate_and_test <- function(seed, n_subj = 40, effect = 0.5) {
+  set.seed(seed)
+  d <- add_random(subject = n_subj) |>
+    add_within(.by = "subject", cond = c("A","B")) |>
+    add_between(.by = "subject", group = c("G1","G2")) |>
+    add_ranef(.by = "subject", u0 = 1.0) |>
+    within({
+      residual <- rnorm(length(subject), 0, 1)
+      y <- 0 +
+           effect * (cond == "B") +
+           effect * (group == "G2") +
+           effect * (cond == "B" & group == "G2") +
+           u0 + residual
+    })
+  # Simple t-test on the B - A difference within each subject
+  diffs <- tapply(d$y[d$cond=="B"], d$subject[d$cond=="B"], mean) -
+           tapply(d$y[d$cond=="A"], d$subject[d$cond=="A"], mean)
+  t.test(diffs)$p.value
+}
+
+# Estimate power over 200 simulations
+p_values <- sapply(1:200, simulate_and_test, n_subj = 40, effect = 0.5)
+cat(sprintf("Estimated power (n=40, d=0.5): %.0f%%\n", mean(p_values < .05) * 100))
+```
+
+---
+
+## Summary of `add_*` functions
+
+| Function | Purpose |
+|----------|---------|
+| `add_random(data, name = n)` | Add a random factor with `n` levels |
+| `add_random(..., .nested_in = col)` | Nest new factor within existing |
+| `add_within(.by, ...)` | Fully cross a within-subject factor |
+| `add_between(.by, ..., .prob)` | Randomly assign between-subject levels |
+| `add_ranef(.by, name = sd)` | Add normally distributed random effects |
+| `add_recode(col, new_col, ...)` | Recode factor levels |
+| `forge_mixed_cc(...)` | Shortcut for cross-classified design |
