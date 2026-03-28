@@ -31,8 +31,8 @@
 #'
 #' @export
 plot_design <- function(data, x = NULL, color = NULL, facet = NULL,
-                        dv = "y", geom = c("violin", "box"),
-                        alpha = 0.5, palette = NULL, title = NULL) {
+                        dv = "y", geom = c("box", "point"),
+                        alpha = 0.5, palette = NULL, title = NULL, reverse_x = FALSE) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     message("ggplot2 is required for plotting. Install it with install.packages('ggplot2').")
     return(invisible(NULL))
@@ -95,6 +95,14 @@ plot_design <- function(data, x = NULL, color = NULL, facet = NULL,
     class(full_aes) <- "uneval"
   } else {
     full_aes <- base_aes
+  }
+
+  # optionally reverse x-axis order
+  if (reverse_x && !is.null(x) && x %in% names(data)) {
+    data[[x]] <- factor(
+      data[[x]],
+      levels = rev(unique(data[[x]]))
+    )
   }
 
   p <- ggplot2::ggplot(data, full_aes)

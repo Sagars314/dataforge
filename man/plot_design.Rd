@@ -10,10 +10,11 @@ plot_design(
   color = NULL,
   facet = NULL,
   dv = "y",
-  geom = c("violin", "box"),
+  geom = c("box", "point"),
   alpha = 0.5,
   palette = NULL,
-  title = NULL
+  title = NULL,
+  reverse_x = FALSE
 )
 }
 \arguments{
