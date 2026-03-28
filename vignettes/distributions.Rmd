@@ -1,0 +1,173 @@
+---
+title: "Distribution Conversions and NORTA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Distribution Conversions and NORTA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=4)
+library(dataforge)
+dataforge_options(verbose=FALSE, plot=FALSE)
+```
+
+## The NORTA Approach
+
+NORTA (Normal-to-Anything) works by:
+
+1. Simulating correlated standard normal variables with the target correlation structure.
+2. Transforming each variable through the inverse CDF of the desired marginal distribution.
+
+This preserves the rank-order correlation structure (Spearman correlations match) while giving each variable the correct marginal distribution.
+
+```{r norta-diagram, echo=FALSE, fig.height=3}
+set.seed(42)
+z1 <- rnorm(300); z2 <- rnorm_pre(z1, r = 0.7)
+b1 <- norm2beta(z1, 2, 5); p1 <- norm2pois(z2, lambda = 4)
+par(mfrow=c(1,3), mar=c(3,3,2,1))
+plot(z1, z2, pch=16, cex=0.5, col="#3366AA80",
+     main="Latent normals", xlab="Z1", ylab="Z2")
+hist(b1, breaks=20, main="Beta marginal", xlab="", col="#66AADD")
+hist(p1, breaks=10, main="Poisson marginal", xlab="", col="#88CC88")
+```
+
+---
+
+## Individual Conversion Functions
+
+Every `norm2X()` function takes a numeric vector (on the normal scale) and returns values from distribution X.  The matching `X2norm()` function inverts the transformation.
+
+### Beta Distribution
+
+```{r beta}
+z  <- rnorm(500)
+b  <- norm2beta(z, shape1 = 2, shape2 = 5)
+summary(b)        # bounded in [0, 1]
+# Round-trip
+z2 <- beta2norm(b, shape1 = 2, shape2 = 5)
+all.equal(z, z2, tolerance = 1e-10)
+```
+
+### Poisson Distribution
+
+```{r pois}
+p <- norm2pois(rnorm(500), lambda = 4)
+table(p)[1:8]
+```
+
+### Binomial Distribution
+
+```{r binom}
+b10 <- norm2binom(rnorm(500), size = 10, prob = 0.3)
+mean(b10)      # should be ~3
+var(b10)       # should be ~2.1
+```
+
+### Gamma Distribution
+
+```{r gamma}
+g <- norm2gamma(rnorm(300), shape = 2, rate = 0.5)
+summary(g)
+```
+
+### Uniform Distribution
+
+```{r unif}
+u <- norm2unif(rnorm(200), min = 18, max = 65)
+range(u)
+```
+
+### Truncated Normal
+
+```{r trunc}
+t <- norm2trunc(rnorm(500), min = 0, max = 10, mu = 5, sd = 2)
+range(t)        # strictly within [0, 10]
+mean(t)         # should be ~5
+```
+
+---
+
+## Likert Scale Simulation
+
+`rlikert()` directly generates Likert responses; `norm2likert()` converts an existing normal variable.
+
+```{r likert}
+# Generate 7-point Likert responses
+ratings <- rlikert(n = 200, items = 7, mu = 0, sd = 1)
+table(ratings)
+
+# Simulate biased (positive skew) ratings
+pos_ratings <- norm2likert(rnorm(200, mean = 1), items = 7)
+table(pos_ratings)
+```
+
+---
+
+## Correlated Mixed Distributions with rmulti()
+
+`rmulti()` is the all-in-one NORTA function. Specify a named list of distributions, a correlation structure, and sample size.
+
+```{r rmulti-basic}
+set.seed(99)
+survey <- rmulti(
+  n = 400,
+  dist = list(
+    age      = list(dist = "norm",   mu = 38, sd = 12),
+    income   = list(dist = "gamma",  shape = 2, rate = 0.02),
+    n_purch  = list(dist = "pois",   lambda = 6),
+    rating   = list(dist = "likert", items = 5),
+    loyal    = list(dist = "binom",  size = 1, prob = 0.6)
+  ),
+  r = 0.35
+)
+head(survey)
+round(cor(survey), 2)
+```
+
+---
+
+## Heterogeneous Correlation Structures
+
+Pass a full correlation matrix or lower-triangle vector to `rmulti()`:
+
+```{r rmulti-het}
+# Correlation matrix: age & income highly correlated, others weakly
+cm <- cormat(c(
+  0.65,          # age ~ income
+  0.10, 0.10,    # age ~ n_purch, income ~ n_purch
+  0.20, 0.15, 0.05  # *~ rating pairs, n_purch ~ rating
+), n = 4, var_names = c("age","income","n_purch","rating"))
+
+df_het <- rmulti(
+  n = 300,
+  dist = list(
+    age     = list(dist = "norm",   mu = 38, sd = 12),
+    income  = list(dist = "gamma",  shape = 2, rate = 0.02),
+    n_purch = list(dist = "pois",   lambda = 6),
+    rating  = list(dist = "likert", items = 5)
+  ),
+  r = cm
+)
+round(cor(df_het), 2)
+```
+
+---
+
+## Integrating with forge_design
+
+Convert within-subject columns to non-normal distributions after simulation:
+
+```{r integrate}
+# Start with normal within-subject data
+df <- forge_design(
+  within = list(time = c("pre","post")),
+  n = 100, mu = c(0, 1), sd = 1, r = 0.5
+)
+
+# Convert to Likert ratings (5-point)
+df$pre_lik  <- norm2likert(df$pre,  items = 5)
+df$post_lik <- norm2likert(df$post, items = 5)
+table(df$pre_lik, df$post_lik)
+```

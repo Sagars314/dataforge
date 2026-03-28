@@ -1,0 +1,143 @@
+---
+title: "Mixed Effects Design Simulation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Mixed Effects Design Simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=4)
+library(dataforge)
+library(magrittr)
+dataforge_options(verbose = FALSE, plot = FALSE)
+```
+
+## Building Complex Designs with Pipes
+
+The `add_*` family of functions uses a pipe-friendly API to construct complex nested or crossed designs step by step.
+
+```
+add_random()   — Add grouping / random factors
+add_within()   — Expand each unit across within-subject levels
+add_between()  — Assign between-subject factor levels
+add_ranef()    — Simulate and add random effects
+add_recode()   — Recode a factor column
+add_contrast() — Attach contrast codes
+```
+
+---
+
+## Example 1: Students Nested within Schools
+
+```{r nested}
+set.seed(1)
+
+school_design <- add_random(school = 10) %>%
+  add_random(student = 25, .nested_in = "school") %>%
+  add_between(.by = "school",
+              type = c("public", "private"),
+              .prob = c(7, 3)) %>%
+  add_between(.by = "student",
+              year  = c("Y1","Y2","Y3"),
+              .prob = c(1, 1, 1)) %>%
+  add_ranef(school = 8, student = 15)
+
+nrow(school_design)
+head(school_design, 10)
+```
+
+Add a continuous outcome using the random effects:
+
+```{r outcome}
+school_design$score <- with(school_design, {
+  # Fixed effects: public schools score 5 pts lower than private
+  50 +
+  ifelse(type == "private", 5, 0) +
+  school_ranef +
+  student_ranef +
+  rnorm(nrow(school_design), 0, 5)
+})
+
+aggregate(score ~ type, school_design, mean)
+```
+
+---
+
+## Example 2: Items × Subjects (Cross-Classified)
+
+Many psycholinguistics or perception designs cross subjects with stimulus items.
+
+```{r crossed}
+set.seed(2)
+
+item_design <- add_random(subject = 30, item = 20) %>%
+  add_between(.by = "subject",
+              condition = c("A", "B")) %>%
+  add_ranef(subject = 20, item = 30) %>%
+  {
+    .$rt <- 500 +
+      ifelse(.$condition == "B", 50, 0) +
+      .$subject_ranef +
+      .$item_ranef +
+      rnorm(nrow(.), 0, 25)
+    .
+  }
+
+head(item_design)
+aggregate(rt ~ condition, item_design, mean)
+```
+
+---
+
+## Example 3: Repeated Measures within Crossed Groups
+
+```{r within-crossed}
+set.seed(3)
+
+design <- add_random(subject = 40) %>%
+  add_between(group = c("control","treatment")) %>%
+  add_within(session = c("s1","s2","s3")) %>%
+  add_ranef(subject = 10)
+
+# Add a linearly growing DV with treatment effect
+design$outcome <- with(design, {
+  session_num <- as.integer(session)
+  base        <- 100
+  growth      <- 5 * session_num
+  trt_effect  <- ifelse(group == "treatment", 10 * session_num, 0)
+  base + growth + trt_effect + subject_ranef + rnorm(nrow(design), 0, 8)
+})
+
+aggregate(outcome ~ group + session, design, mean)
+```
+
+---
+
+## Example 4: Recoding and Contrasts in the Pipeline
+
+```{r recode-contrasts}
+df <- add_random(participant = 60) %>%
+  add_between(age_group = c("young", "middle", "older")) %>%
+  add_contrast("age_group", contrast = "helmert") %>%
+  add_recode("age_group",
+             young = 1, middle = 2, older = 3,
+             .new_col = "age_num")
+
+head(df)
+```
+
+---
+
+## Fitting a Mixed Model
+
+The output of the builder pipeline is a standard data frame, compatible with `lme4` and other mixed modelling packages.
+
+```{r lme4, eval=FALSE}
+library(lme4)
+
+model <- lmer(outcome ~ group * session + (1 | subject),
+              data = design)
+summary(model)
+```

@@ -1,94 +1,99 @@
-#' Simulate new data that matches the structure of an existing data frame
+#' Simulate New Data from an Existing Data Frame
 #'
-#' Estimates the empirical means, standard deviations, and correlations of
-#' numeric columns (optionally per group defined by `between`), then generates
-#' new data with the same statistical structure using [rnorm_multi()].
+#' @description
+#' Given an existing data frame, `forge_df()` estimates the multivariate
+#' normal parameters (means, SDs, correlations) for the numeric columns,
+#' stratified by optional grouping (between-subject) columns, and generates a
+#' new data frame with the same structure.
 #'
-#' @param df A data frame to use as the template.
-#' @param n Integer. Number of observations to simulate per group.
-#' @param between Character vector of column names to treat as grouping
-#'   (between-subjects) factors. These columns are preserved as-is.
-#' @param within Character vector of column names to treat as numeric DV
-#'   columns to be simulated. Defaults to all numeric columns not in
-#'   `between`.
-#' @param empirical Logical. Should simulated data match the template
-#'   statistics exactly? (default `FALSE`)
-#' @param seed Optional integer seed.
+#' @param df A data frame containing the source data.
+#' @param n Integer. Number of observations to simulate per group. Defaults to
+#'   the original group size.
+#' @param between Character vector of column names to use as grouping
+#'   (between-subject) variables.
+#' @param dv Character vector of numeric column names to simulate. Defaults to
+#'   all numeric columns not listed in `between`.
+#' @param id Character. Name for the generated ID column. Set to `NULL` to
+#'   suppress. Default `"id"`.
+#' @param empirical Logical. If `TRUE`, simulated data will have exactly the
+#'   estimated parameters (means, SDs, correlations).
+#' @param seed Integer or `NULL`. Random seed.
 #'
-#' @return A data frame with the same column structure as `df`, containing
-#'   `n * <number of groups>` rows of simulated data.
-#' @export
+#' @return A data frame with `n * n_groups` rows and the same columns as `df`.
 #'
 #' @examples
-#' # Simulate 100 obs per species from iris
-#' new_iris <- forge_df(iris, n = 100, between = "Species")
-#' summary(new_iris)
+#' # Re-simulate iris with 30 obs per species
+#' new_iris <- forge_df(iris, n = 30, between = "Species")
+#' head(new_iris)
+#' nrow(new_iris) # 90
 #'
-#' # Simulate from mtcars without grouping
-#' new_mt <- forge_df(mtcars[, c("mpg","hp","wt")], n = 50)
-#' head(new_mt)
-forge_df <- function(df, n = 100, between = NULL, within = NULL,
-                     empirical = FALSE, seed = NULL) {
+#' # Simulate from mtcars grouped by cylinders
+#' new_mt <- forge_df(mtcars, n = 20, between = "cyl",
+#'                    dv = c("mpg", "hp", "wt"))
+#'
+#' @export
+forge_df <- function(df, n = NULL, between = NULL, dv = NULL,
+                     id = "id", empirical = FALSE, seed = NULL) {
+  if (!is.data.frame(df)) stop("`df` must be a data frame.", call. = FALSE)
   if (!is.null(seed)) set.seed(seed)
 
-  # Identify numeric columns to simulate
-  all_num <- names(df)[vapply(df, is.numeric, logical(1))]
-  if (is.null(within)) {
-    within <- setdiff(all_num, between)
+  # Identify DV columns
+  num_cols <- names(df)[vapply(df, is.numeric, logical(1))]
+  if (!is.null(between)) num_cols <- setdiff(num_cols, between)
+  if (!is.null(dv)) {
+    if (!all(dv %in% names(df))) stop("Some `dv` columns not found in `df`.", call. = FALSE)
+    num_cols <- dv
   }
-  if (length(within) == 0) stop("No numeric columns to simulate.", call. = FALSE)
+  if (length(num_cols) == 0) stop("No numeric columns to simulate.", call. = FALSE)
 
-  if (is.null(between) || length(between) == 0) {
-    # No grouping
-    mu_v <- colMeans(df[, within, drop = FALSE], na.rm = TRUE)
-    sd_v <- sapply(df[, within, drop = FALSE], sd, na.rm = TRUE)
-    r_v  <- cor(df[, within, drop = FALSE], use = "pairwise.complete.obs")
-    sim  <- rnorm_multi(n, vars = within, mu = mu_v, sd = sd_v, r = r_v,
+  # Split by between factors
+  if (is.null(between)) {
+    groups <- list(all = df)
+  } else {
+    if (!all(between %in% names(df)))
+      stop("Some `between` columns not found in `df`.", call. = FALSE)
+    groups <- split(df, df[between], drop = TRUE)
+  }
+
+  results <- lapply(seq_along(groups), function(gi) {
+    g     <- groups[[gi]]
+    gname <- names(groups)[[gi]]
+    n_g   <- if (is.null(n)) nrow(g) else as.integer(n)
+
+    # Estimate parameters
+    sub   <- g[num_cols]
+    mu_g  <- colMeans(sub, na.rm = TRUE)
+    sd_g  <- apply(sub, 2, stats::sd, na.rm = TRUE)
+    cr_g  <- cor(sub, use = "pairwise.complete.obs")
+
+    # Simulate
+    sim <- rnorm_forge(n_g,
+                        vars      = length(num_cols),
+                        mu        = mu_g,
+                        sd        = sd_g,
+                        r         = cr_g,
+                        var_names = num_cols,
                         empirical = empirical)
-    # Re-attach non-numeric / non-simulated columns sampled at random
-    extra <- setdiff(names(df), within)
-    if (length(extra) > 0) {
-      extra_df <- df[sample(nrow(df), n, replace = TRUE), extra, drop = FALSE]
-      rownames(extra_df) <- NULL
-      sim <- cbind(extra_df, sim)
-    }
-    return(sim)
-  }
 
-  # Grouped simulation
-  groups <- unique(df[, between, drop = FALSE])
-  results <- vector("list", nrow(groups))
-  for (i in seq_len(nrow(groups))) {
-    grp_filter <- Reduce(`&`, lapply(between, function(col) {
-      df[[col]] == groups[[col]][i]
-    }))
-    sub <- df[grp_filter, within, drop = FALSE]
-    if (nrow(sub) < 2) {
-      warning("Group ", paste(unlist(groups[i,]), collapse="/"),
-              " has fewer than 2 rows; skipping.", call. = FALSE)
-      next
+    # Re-attach between columns
+    if (!is.null(between)) {
+      btw_vals <- g[1, between, drop = FALSE]
+      sim <- cbind(btw_vals[rep(1, n_g), , drop = FALSE], sim,
+                   row.names = NULL, stringsAsFactors = FALSE)
     }
-    mu_v <- colMeans(sub, na.rm = TRUE)
-    sd_v <- sapply(sub, sd, na.rm = TRUE)
-    r_v  <- if (length(within) > 1)
-              cor(sub, use = "pairwise.complete.obs")
-            else
-              matrix(1, 1, 1, dimnames = list(within, within))
-    sim_grp <- rnorm_multi(n, vars = within, mu = mu_v, sd = sd_v, r = r_v,
-                           empirical = empirical)
-    between_df <- groups[rep(i, n), , drop = FALSE]
-    rownames(between_df) <- NULL
-    results[[i]] <- cbind(between_df, sim_grp)
-  }
 
-  out <- do.call(rbind, Filter(Negate(is.null), results))
+    # ID column
+    if (!is.null(id)) {
+      sim <- cbind(data.frame(id = seq_len(n_g), stringsAsFactors = FALSE),
+                   sim)
+    }
+    sim
+  })
+
+  out <- do.call(rbind, results)
   rownames(out) <- NULL
 
-  # Re-factor between columns
-  for (col in between) {
-    if (col %in% names(out) && is.character(out[[col]])) {
-      out[[col]] <- factor(out[[col]], levels = levels(factor(df[[col]])))
-    }
-  }
+  if (!is.null(id)) out[[id]] <- seq_len(nrow(out))
+
   out
 }

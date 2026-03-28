@@ -1,8 +1,14 @@
 Package: dataforge
 Title: Simulate Structured Data for Factorial and Mixed Designs
 Version: 0.1.0
-Authors@R: 
-    person("Sagar", "S", email = "sagars314@protom.me", role = c("aut", "cre"))
+Date: 2026-03-13
+Authors@R:
+    person(
+        given = "Sagar", 
+        family = "S", 
+        role = c("aut", "cre"), 
+        email = "sagars314@protom.me"
+    )
 Description: Provides a comprehensive toolkit for simulating structured datasets 
     with user-specified means, standard deviations, and correlation structures. 
     Supports factorial designs (between-subjects, within-subjects, mixed), 
@@ -37,8 +43,10 @@ Suggests:
     knitr,
     rmarkdown,
     cowplot,
-    lme4
+    lme4,
+    magrittr
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 URL: https://github.com/Sagars314/dataforge
 BugReports: https://github.com/Sagars314/dataforge/issues
+LazyData: true

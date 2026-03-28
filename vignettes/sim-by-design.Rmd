@@ -1,0 +1,192 @@
+---
+title: "Simulate by Design"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulate by Design}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=4)
+library(dataforge)
+dataforge_options(verbose = FALSE, plot = FALSE)
+```
+
+## What is "Simulate by Design"?
+
+`forge_design()` lets you specify a complete experimental design — within factors, between factors, sample sizes, means, SDs, and correlations — and produces a realistic data frame in one call. This is ideal for:
+
+- **Power analysis** by simulation (run `rep = 1000` and analyse each dataset)
+- **Teaching** about ANOVA, mixed models, and repeated measures
+- **Pilot data** when real data collection hasn't started yet
+- **Creating worked examples** for papers or tutorials
+
+---
+
+## Specifying Factor Levels
+
+Factor levels can be simple character vectors, or named vectors where names are short codes and values are labels. The names are used for column names (wide format); the values are stored as factor levels.
+
+```{r factor-levels}
+# Simple character vector
+within_simple <- list(time = c("pre", "post"))
+
+# Named vector: codes → labels
+within_named <- list(
+  time = c(t1 = "Baseline", t2 = "Week 4", t3 = "Week 8")
+)
+
+df <- forge_design(within = within_named, n = 20,
+                   mu = c(10, 12, 15), sd = 2, r = 0.6)
+names(df)          # uses the codes (t1, t2, t3) for column names
+```
+
+---
+
+## Specifying Cell Means
+
+Cell means can be provided in several equivalent ways.
+
+### Scalar — same mean everywhere
+
+```{r mu-scalar}
+df1 <- forge_design(within = list(t = c("a","b","c")), n = 30,
+                    mu = 10, sd = 2, r = 0.3)
+colMeans(df1[,c("a","b","c")])
+```
+
+### Vector — one value per cell (within varies fastest)
+
+For a 2 (between: group) × 3 (within: time) design, order is:
+`ctrl_pre, ctrl_mid, ctrl_post, trt_pre, trt_mid, trt_post`
+
+```{r mu-vector}
+df2 <- forge_design(
+  within  = list(time = c("pre","mid","post")),
+  between = list(group = c("ctrl","trt")),
+  n   = 50,
+  mu  = c(10, 11, 12,   # ctrl
+          10, 13, 17),  # trt
+  sd  = 2, r = 0.5
+)
+```
+
+### Data frame — most explicit
+
+Rows = within-level combinations, columns = between-level combinations:
+
+```{r mu-df}
+mu_df <- data.frame(
+  ctrl = c(10, 11, 12),
+  trt  = c(10, 13, 17),
+  row.names = c("pre","mid","post")
+)
+df3 <- forge_design(
+  within  = list(time = c("pre","mid","post")),
+  between = list(group = c("ctrl","trt")),
+  n = 50, mu = mu_df, sd = 2, r = 0.5
+)
+```
+
+---
+
+## Unequal Group Sizes
+
+Supply a vector of `n` values (one per between-subject cell):
+
+```{r unequal-n}
+df_uneq <- forge_design(
+  between = list(group = c("A","B","C")),
+  n  = c(20, 40, 30),    # unequal Ns
+  mu = c(10, 12, 11),
+  sd = 2
+)
+table(df_uneq$group)
+```
+
+---
+
+## Heterogeneous Correlations
+
+Correlations can differ by between-subject cell using a named list:
+
+```{r het-r}
+df_hr <- forge_design(
+  within  = list(t = c("pre","post")),
+  between = list(group = c("low","high")),
+  n   = 50,
+  mu  = c(10, 11, 10, 14),
+  sd  = 2,
+  r   = list(low = 0.7, high = 0.2)   # different r per group
+)
+```
+
+---
+
+## Heterogeneous SDs
+
+SDs can vary across cells just like means:
+
+```{r het-sd}
+sd_mat <- data.frame(ctrl = c(2, 2, 2), trt = c(2, 3, 4),
+                     row.names = c("pre","mid","post"))
+df_hs <- forge_design(
+  within  = list(time = c("pre","mid","post")),
+  between = list(group = c("ctrl","trt")),
+  n = 40, mu = c(10,11,12,10,13,17), sd = sd_mat, r = 0.5
+)
+```
+
+---
+
+## Simulation Studies with rep
+
+Use `rep` to generate many datasets at once:
+
+```{r rep}
+datasets <- forge_design(
+  within  = list(t = c("pre","post")),
+  between = list(g = c("ctrl","trt")),
+  n = 30, mu = c(0,0,0,2), sd = 1, r = 0.5,
+  rep = 100
+)
+
+length(datasets)  # 100 datasets
+
+# Run a t-test on each and extract p-values
+p_values <- vapply(datasets, function(d) {
+  t.test(d$post[d$g == "trt"], d$post[d$g == "ctrl"])$p.value
+}, numeric(1))
+
+mean(p_values < 0.05)  # empirical power estimate
+```
+
+---
+
+## Checking a Design Before Simulating
+
+`check_design()` validates your specification without generating data:
+
+```{r check-design}
+check_design(
+  within  = list(time = c("pre","mid","post")),
+  between = list(group = c("A","B")),
+  n = 50, mu = c(10,12,14,10,15,20), sd = 2, r = 0.6
+)
+```
+
+---
+
+## Getting Parameters Back
+
+After simulating, `get_params()` computes observed means, SDs, and correlations:
+
+```{r get-params}
+df <- forge_design(
+  within  = list(time = c("pre","post")),
+  between = list(group = c("ctrl","trt")),
+  n = 100, mu = c(10,11,10,15), sd = 3, r = 0.6
+)
+get_params(df, between = "group")
+```

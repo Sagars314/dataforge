@@ -1,161 +1,119 @@
-#' Add a contrast coding column to a data frame
+#' Add Contrast Codes to a Data Frame
 #'
-#' Adds one or more contrast-coded numeric columns for a factor, based on a
-#' chosen coding scheme.
+#' @description
+#' Generate and attach contrast codes for a factor column. Supports treatment,
+#' sum, Helmert, polynomial, and difference coding — matching the schemes
+#' used in `faux::add_contrast()`.
 #'
 #' @param data A data frame.
-#' @param col Character. Name of the factor column to contrast-code.
-#' @param contrasts Character. One of `"treatment"`, `"sum"`, `"helmert"`,
-#'   `"difference"`, `"poly"`, `"anova"`. Default `"treatment"`.
-#' @param base Integer or character. Base/reference level (used by treatment
-#'   coding). Default `1`.
-#' @param labels Character vector of new column name(s). Auto-generated if
-#'   `NULL`.
-#' @param remove_intercept Logical. Remove the intercept column? (default
-#'   `FALSE`)
-#' @return The input data frame with additional numeric contrast column(s).
-#' @export
+#' @param col Character. Name of the factor column to code.
+#' @param contrast Character. One of `"treatment"`, `"sum"`, `"anova"`,
+#'   `"helmert"`, `"poly"`, `"difference"`.
+#' @param reference Integer. Index of the reference level (treatment coding
+#'   only). Default 1.
+#' @param .add_cols Logical. If `TRUE` (default), add contrast columns to
+#'   `data`. If `FALSE`, return the contrast matrix only.
+#'
+#' @return The data frame with contrast columns added, or the contrast matrix
+#'   if `.add_cols = FALSE`.
+#'
 #' @examples
-#' d <- data.frame(group = factor(c("A","B","C","A","B","C")),
-#'                 y = rnorm(6))
-#' add_contrast(d, "group", contrasts = "treatment")
-#' add_contrast(d, "group", contrasts = "sum")
-add_contrast <- function(data, col, contrasts = "treatment",
-                         base = 1, labels = NULL,
-                         remove_intercept = FALSE) {
-  f <- data[[col]]
-  if (!is.factor(f)) f <- factor(f)
-  levs <- levels(f)
-  k    <- length(levs)
+#' df <- data.frame(group = factor(rep(c("A","B","C"), each = 10)))
+#' add_contrast(df, "group", contrast = "helmert")
+#'
+#' @export
+add_contrast <- function(data, col, contrast = "treatment",
+                         reference = 1, .add_cols = TRUE) {
+  if (!is.data.frame(data)) stop("`data` must be a data frame.", call. = FALSE)
+  if (!(col %in% names(data))) stop(sprintf("Column '%s' not found.", col), call. = FALSE)
 
-  cm <- switch(contrasts,
-    treatment  = contr_code_treatment(levs, base),
-    sum        = contr_code_sum(levs, base),
-    helmert    = contr_code_helmert(levs),
-    difference = contr_code_difference(levs),
-    poly       = contr_code_poly(levs),
-    anova      = contr_code_anova(levs, base),
-    stop("Unknown contrast scheme: ", contrasts, call. = FALSE)
+  f   <- factor(data[[col]])
+  lvs <- levels(f)
+  k   <- length(lvs)
+
+  cm <- switch(contrast,
+    treatment  = contr_code_treatment(k, reference),
+    anova      = ,
+    sum        = contr_code_sum(k),
+    helmert    = contr_code_helmert(k),
+    poly       = contr_code_poly(k),
+    difference = contr_code_difference(k),
+    stop(sprintf("Unknown contrast type '%s'.", contrast), call. = FALSE)
   )
+  rownames(cm) <- lvs
 
-  if (is.null(labels)) labels <- colnames(cm)
-  coded <- model.matrix(~ f - 1, data = data.frame(f = f)) %*% cm
-  colnames(coded) <- labels
+  if (!.add_cols) return(cm)
 
-  cbind(data, as.data.frame(coded))
-}
-
-# ---- Contrast matrix constructors ------------------------------------------
-
-#' Treatment (dummy) coding
-#' @param levels Character vector of factor levels.
-#' @param base Reference level (integer index or level name). Default `1`.
-#' @return A contrast matrix.
-#' @export
-#' @examples
-#' contr_code_treatment(c("A","B","C"))
-contr_code_treatment <- function(levels, base = 1) {
-  k   <- length(levels)
-  if (is.character(base)) base <- match(base, levels)
-  cm  <- diag(k)[-base, , drop = FALSE]
-  cm  <- t(cm)
-  colnames(cm) <- paste0(levels[-base], ".vs.", levels[base])
-  rownames(cm) <- levels
-  cm
-}
-
-#' Sum (deviation) coding
-#' @param levels Character vector of factor levels.
-#' @param base Reference level. Default `length(levels)`.
-#' @return A contrast matrix.
-#' @export
-#' @examples
-#' contr_code_sum(c("A","B","C"))
-contr_code_sum <- function(levels, base = length(levels)) {
-  k  <- length(levels)
-  if (is.character(base)) base <- match(base, levels)
-  cm <- contr.sum(k)
-  if (base != k) {
-    ord <- c(setdiff(seq_len(k), base), base)
-    cm  <- cm[ord, , drop = FALSE]
+  # Attach contrast columns named col.level (dropping reference for treatment)
+  col_nms <- colnames(cm)
+  for (cn in col_nms) {
+    data[[paste0(col, ".", cn)]] <- cm[as.character(f), cn]
   }
-  rownames(cm) <- levels
-  colnames(cm) <- paste0(levels[-base], ".sum")
+  data
+}
+
+#' Treatment Contrast Matrix
+#' @param k Integer. Number of levels.
+#' @param reference Integer. Reference level index.
+#' @return A `k x (k-1)` matrix.
+#' @export
+contr_code_treatment <- function(k, reference = 1) {
+  cm <- stats::contr.treatment(k, base = reference)
+  colnames(cm) <- paste0("c", seq_len(ncol(cm)))
   cm
 }
 
-#' Helmert coding
-#' @param levels Character vector of factor levels.
-#' @return A contrast matrix.
+#' Sum (Deviation) Contrast Matrix
+#' @param k Integer. Number of levels.
+#' @return A `k x (k-1)` matrix.
 #' @export
-#' @examples
-#' contr_code_helmert(c("A","B","C","D"))
-contr_code_helmert <- function(levels) {
-  k  <- length(levels)
-  cm <- contr.helmert(k)
-  # Normalise so coefficients compare each level to mean of previous
-  for (j in seq_len(ncol(cm))) {
-    cm[, j] <- cm[, j] / (j + 1)
-  }
-  rownames(cm) <- levels
-  colnames(cm) <- paste0(levels[-1], ".vs.prev")
+contr_code_sum <- function(k) {
+  cm <- stats::contr.sum(k)
+  colnames(cm) <- paste0("c", seq_len(ncol(cm)))
   cm
 }
 
-#' Difference (successive) coding
-#' @param levels Character vector of factor levels.
-#' @return A contrast matrix.
+#' ANOVA (sum) Contrast Matrix — alias for contr_code_sum
+#' @inheritParams contr_code_sum
 #' @export
-#' @examples
-#' contr_code_difference(c("A","B","C","D"))
-contr_code_difference <- function(levels) {
-  k  <- length(levels)
-  cm <- matrix(0, k, k - 1)
+contr_code_anova <- contr_code_sum
+
+#' Helmert Contrast Matrix
+#' @param k Integer. Number of levels.
+#' @return A `k x (k-1)` matrix.
+#' @export
+contr_code_helmert <- function(k) {
+  cm <- stats::contr.helmert(k)
+  # Scale to [-1, 1] range
+  cm <- apply(cm, 2, function(col) col / max(abs(col)))
+  colnames(cm) <- paste0("c", seq_len(ncol(cm)))
+  cm
+}
+
+#' Polynomial Contrast Matrix
+#' @param k Integer. Number of levels.
+#' @return A `k x (k-1)` matrix.
+#' @export
+contr_code_poly <- function(k) {
+  cm <- stats::contr.poly(k)
+  colnames(cm) <- c(".L", ".Q", ".C", paste0("^", 4:k))[seq_len(k - 1)]
+  cm
+}
+
+#' Difference (Sequential) Contrast Matrix
+#'
+#' @description
+#' Each column contrasts adjacent level pairs: level i+1 vs level i.
+#'
+#' @param k Integer. Number of levels.
+#' @return A `k x (k-1)` matrix.
+#' @export
+contr_code_difference <- function(k) {
+  cm <- matrix(0, nrow = k, ncol = k - 1)
   for (j in seq_len(k - 1)) {
-    cm[seq_len(j), j]       <- -1 / k
-    cm[seq(j+1, k), j]      <-  (k - j) / k / j
+    cm[j, j]       <- -1
+    cm[j + 1, j]   <-  1
   }
-  # Use simpler successive differences
-  cm <- matrix(0, k, k - 1)
-  for (j in seq_len(k - 1)) {
-    cm[1:j, j]       <- -1
-    cm[(j+1):k, j]   <-  j / (k - j)
-  }
-  # Cleaner: each column contrasts level j+1 vs level j
-  cm <- matrix(0, k, k - 1)
-  for (j in seq_len(k - 1)) {
-    cm[j, j]     <- -1
-    cm[j + 1, j] <-  1
-  }
-  rownames(cm) <- levels
-  colnames(cm) <- paste0(levels[-1], ".vs.", levels[-k])
-  cm
-}
-
-#' ANOVA (deviation from grand mean) coding
-#' @param levels Character vector of factor levels.
-#' @param base Reference level (omitted). Default `length(levels)`.
-#' @return A contrast matrix.
-#' @export
-#' @examples
-#' contr_code_anova(c("A","B","C"))
-contr_code_anova <- function(levels, base = length(levels)) {
-  contr_code_sum(levels, base = base)
-}
-
-#' Polynomial (orthogonal) coding
-#' @param levels Character vector of factor levels.
-#' @return A contrast matrix.
-#' @export
-#' @examples
-#' contr_code_poly(c("low","med","high","vhigh"))
-contr_code_poly <- function(levels) {
-  k  <- length(levels)
-  cm <- contr.poly(k)
-  rownames(cm) <- levels
-  colnames(cm) <- paste0(".L", seq_len(k - 1))
-  # Rename to conventional labels
-  poly_nms <- c(".L", ".Q", ".C", paste0("^", seq(4, k - 1)))
-  colnames(cm) <- poly_nms[seq_len(k - 1)]
+  colnames(cm) <- paste0("c", seq_len(k - 1))
   cm
 }

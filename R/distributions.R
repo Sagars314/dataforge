@@ -1,262 +1,270 @@
 # ============================================================
-# Distribution conversion functions (NORTA approach)
+# Distribution conversion functions
 # ============================================================
-# Each norm2X function converts a standard normal vector to the
-# target distribution X by probability-integral transform.
-# Each X2norm inverts the process.
+# Pattern: norm2X() converts a standard-normal variate to
+#           distribution X; X2norm() does the reverse.
 # ============================================================
 
-#' Convert a normal vector to a Beta distribution
-#' @param x Numeric vector (need not be standard normal; will be rank-based).
-#' @param alpha Shape parameter alpha (default `2`).
-#' @param beta  Shape parameter beta  (default `5`).
-#' @return A numeric vector following a Beta distribution.
+#' Convert Normal to Beta
+#' @param x Numeric vector (standard normal or from \code{\link{rnorm_forge}}).
+#' @param shape1,shape2 Beta distribution shape parameters.
+#' @return Numeric vector of beta-distributed values.
+#' @examples norm2beta(rnorm(100), shape1 = 2, shape2 = 5)
 #' @export
-#' @examples
-#' x <- rnorm(500)
-#' y <- norm2beta(x, alpha = 2, beta = 5)
-#' hist(y, breaks = 30)
-norm2beta <- function(x, alpha = 2, beta = 5) {
-  p <- pnorm(x)
-  qbeta(p, shape1 = alpha, shape2 = beta)
+norm2beta <- function(x, shape1 = 1, shape2 = 1) {
+  p <- stats::pnorm(x)
+  stats::qbeta(p, shape1 = shape1, shape2 = shape2)
 }
 
-#' @rdname norm2beta
+#' Convert Beta to Normal
+#' @param x Numeric vector of beta-distributed values.
+#' @param shape1,shape2 Beta distribution shape parameters.
+#' @return Numeric vector of normal-distributed values.
 #' @export
-beta2norm <- function(x, alpha = 2, beta = 5) {
-  p <- pbeta(x, shape1 = alpha, shape2 = beta)
-  qnorm(p)
+beta2norm <- function(x, shape1 = 1, shape2 = 1) {
+  p <- stats::pbeta(x, shape1 = shape1, shape2 = shape2)
+  stats::qnorm(p)
 }
 
-#' Convert a normal vector to a Binomial distribution
+#' Convert Normal to Binomial
 #' @param x Numeric vector.
 #' @param size Number of trials.
 #' @param prob Probability of success.
 #' @return Integer vector.
+#' @examples norm2binom(rnorm(100), size = 10, prob = 0.3)
 #' @export
-#' @examples
-#' norm2binom(rnorm(200), size = 10, prob = 0.4)
 norm2binom <- function(x, size = 1, prob = 0.5) {
-  p <- pnorm(x)
-  qbinom(p, size = size, prob = prob)
+  p <- stats::pnorm(x)
+  stats::qbinom(p, size = size, prob = prob)
 }
 
-#' @rdname norm2binom
-#' @export
-binom2norm <- function(x, size = 1, prob = 0.5) {
-  p <- pbinom(x, size = size, prob = prob)
-  qnorm(p)
-}
-
-#' Convert a normal vector to a Gamma distribution
-#' @param x Numeric vector.
-#' @param shape Gamma shape parameter.
-#' @param rate  Gamma rate parameter.
+#' Convert Binomial to Normal
+#' @param x Integer vector of binomial counts.
+#' @param size Number of trials.
+#' @param prob Probability of success.
 #' @return Numeric vector.
 #' @export
-#' @examples
-#' norm2gamma(rnorm(300), shape = 2, rate = 0.5)
-norm2gamma <- function(x, shape = 1, rate = 1) {
-  p <- pnorm(x)
-  qgamma(p, shape = shape, rate = rate)
+binom2norm <- function(x, size = 1, prob = 0.5) {
+  p <- stats::pbinom(x, size = size, prob = prob)
+  stats::qnorm(p)
 }
 
-#' @rdname norm2gamma
+#' Convert Normal to Gamma
+#' @param x Numeric vector.
+#' @param shape Shape parameter.
+#' @param rate Rate parameter (1/scale).
+#' @return Numeric vector.
+#' @examples norm2gamma(rnorm(100), shape = 2, rate = 1)
+#' @export
+norm2gamma <- function(x, shape = 1, rate = 1) {
+  p <- stats::pnorm(x)
+  stats::qgamma(p, shape = shape, rate = rate)
+}
+
+#' Convert Gamma to Normal
+#' @param x Numeric vector.
+#' @param shape Shape parameter.
+#' @param rate Rate parameter.
+#' @return Numeric vector.
 #' @export
 gamma2norm <- function(x, shape = 1, rate = 1) {
-  p <- pgamma(x, shape = shape, rate = rate)
-  qnorm(p)
+  p <- stats::pgamma(x, shape = shape, rate = rate)
+  stats::qnorm(p)
 }
 
-#' Convert a normal vector to a Negative Binomial distribution
+#' Convert Normal to Poisson
 #' @param x Numeric vector.
-#' @param size Target for number of successful trials.
-#' @param prob Probability of success on each trial.
+#' @param lambda Mean of the Poisson distribution.
 #' @return Integer vector.
+#' @examples norm2pois(rnorm(100), lambda = 3)
 #' @export
-#' @examples
-#' norm2nbinom(rnorm(200), size = 5, prob = 0.4)
-norm2nbinom <- function(x, size = 1, prob = 0.5) {
-  p <- pnorm(x)
-  qnbinom(p, size = size, prob = prob)
-}
-
-#' @rdname norm2nbinom
-#' @export
-nbinom2norm <- function(x, size = 1, prob = 0.5) {
-  p <- pnbinom(x, size = size, prob = prob)
-  qnorm(p)
-}
-
-#' Convert a normal vector to a Poisson distribution
-#' @param x Numeric vector.
-#' @param lambda Poisson rate parameter.
-#' @return Integer vector.
-#' @export
-#' @examples
-#' norm2pois(rnorm(200), lambda = 3)
 norm2pois <- function(x, lambda = 1) {
-  p <- pnorm(x)
-  qpois(p, lambda = lambda)
+  p <- stats::pnorm(x)
+  stats::qpois(p, lambda = lambda)
 }
 
-#' @rdname norm2pois
+#' Convert Poisson to Normal
+#' @param x Integer vector.
+#' @param lambda Mean of the Poisson distribution.
+#' @return Numeric vector.
 #' @export
 pois2norm <- function(x, lambda = 1) {
-  p <- ppois(x, lambda = lambda)
-  qnorm(p)
+  p <- stats::ppois(x, lambda = lambda)
+  stats::qnorm(p)
 }
 
-#' Convert a normal vector to a truncated normal distribution
+#' Convert Normal to Uniform
 #' @param x Numeric vector.
-#' @param min Lower truncation bound.
-#' @param max Upper truncation bound.
-#' @param mu  Mean of the underlying normal.
-#' @param sd  SD of the underlying normal.
-#' @return Numeric vector truncated to \[min, max\].
+#' @param min Lower bound.
+#' @param max Upper bound.
+#' @return Numeric vector.
+#' @examples norm2unif(rnorm(100), min = 0, max = 10)
 #' @export
-#' @examples
-#' norm2trunc(rnorm(200), min = 0, max = 10)
-norm2trunc <- function(x, min = -Inf, max = Inf, mu = 0, sd = 1) {
-  p <- pnorm(x)
-  lo <- pnorm(min, mu, sd)
-  hi <- pnorm(max, mu, sd)
-  p_scaled <- lo + p * (hi - lo)
-  p_scaled <- pmin(pmax(p_scaled, lo + 1e-9), hi - 1e-9)
-  qnorm(p_scaled, mu, sd)
-}
-
-#' @rdname norm2trunc
-#' @export
-trunc2norm <- function(x, min = -Inf, max = Inf, mu = 0, sd = 1) {
-  p <- pnorm(x, mu, sd)
-  lo <- pnorm(min, mu, sd)
-  hi <- pnorm(max, mu, sd)
-  p_unscaled <- (p - lo) / (hi - lo)
-  qnorm(p_unscaled)
-}
-
-#' Convert a normal vector to a Uniform distribution
-#' @param x Numeric vector.
-#' @param min Lower bound (default `0`).
-#' @param max Upper bound (default `1`).
-#' @return Numeric vector uniform on \[min, max\].
-#' @export
-#' @examples
-#' norm2unif(rnorm(100), min = 1, max = 10)
 norm2unif <- function(x, min = 0, max = 1) {
-  p <- pnorm(x)
-  qunif(p, min = min, max = max)
+  p <- stats::pnorm(x)
+  stats::qunif(p, min = min, max = max)
 }
 
-#' @rdname norm2unif
+#' Convert Uniform to Normal
+#' @param x Numeric vector (uniform values in `min` and `max`).
+#' @param min Lower bound.
+#' @param max Upper bound.
+#' @return Numeric vector.
 #' @export
 unif2norm <- function(x, min = 0, max = 1) {
-  p <- punif(x, min = min, max = max)
-  qnorm(p)
+  p <- stats::punif(x, min = min, max = max)
+  stats::qnorm(p)
 }
 
-#' Convert a normal vector to normal (identity; for API consistency)
+#' Convert Normal to Truncated Normal
+#'
 #' @param x Numeric vector.
-#' @param mu Target mean.
-#' @param sd Target SD.
-#' @return Rescaled numeric vector.
+#' @param min,max Truncation bounds. `NA` means no truncation on that side.
+#' @param mu Mean of the (untruncated) normal.
+#' @param sd SD of the (untruncated) normal.
+#' @return Numeric vector truncated to `min` and `max`.
+#' @examples norm2trunc(rnorm(200), min = 0, max = 5, mu = 2, sd = 1.5)
 #' @export
-norm2norm <- function(x, mu = 0, sd = 1) {
-  as.numeric(scale(x)) * sd + mu
+norm2trunc <- function(x, min = -Inf, max = Inf, mu = 0, sd = 1) {
+  lo  <- if (is.na(min)) -Inf else min
+  hi  <- if (is.na(max))  Inf else max
+  p   <- stats::pnorm(x)
+  p_lo <- stats::pnorm(lo, mu, sd)
+  p_hi <- stats::pnorm(hi, mu, sd)
+  p_scaled <- p_lo + p * (p_hi - p_lo)
+  stats::qnorm(p_scaled, mu, sd)
+}
+
+#' Convert Truncated Normal to Normal
+#' @param x Numeric vector (truncated normal values).
+#' @param min,max The bounds that were used to truncate.
+#' @param mu,sd Parameters of the underlying normal.
+#' @return Numeric vector on the standard normal scale.
+#' @export
+trunc2norm <- function(x, min = -Inf, max = Inf, mu = 0, sd = 1) {
+  lo   <- if (is.na(min)) -Inf else min
+  hi   <- if (is.na(max))  Inf else max
+  p_lo <- stats::pnorm(lo, mu, sd)
+  p_hi <- stats::pnorm(hi, mu, sd)
+  p    <- stats::pnorm(x, mu, sd)
+  p_scaled <- (p - p_lo) / (p_hi - p_lo)
+  stats::qnorm(p_scaled)
 }
 
 # ============================================================
 # Likert distribution
 # ============================================================
 
-#' Convert a normal vector to Likert-scale responses
+#' Random Likert-Scale Values
 #'
-#' Bins a normal vector into ordered integer categories (Likert items) using
-#' equal-probability cut-points.
+#' @description
+#' Generate random responses on a Likert scale by discretising a latent
+#' normal variable.
 #'
-#' @param x Numeric vector (raw or standard-normal scores).
-#' @param n Integer. Number of Likert categories (default `5`).
-#' @param mu Mean of the latent normal before binning (default `0`).
-#' @param sd SD of the latent normal before binning (default `1`).
-#' @return An ordered integer vector with values in `1:n`.
-#' @export
+#' @param n Integer. Number of observations.
+#' @param items Integer. Number of Likert scale points (default 5).
+#' @param mu Mean of the latent normal (maps to scale centre by default).
+#' @param sd SD of the latent normal. Default 1.
+#'
+#' @return Integer vector with values in `1:items`.
 #' @examples
-#' x <- rnorm(200)
-#' y <- norm2likert(x, n = 7)
-#' table(y)
-norm2likert <- function(x, n = 5, mu = 0, sd = 1) {
-  breaks <- qnorm(seq(0, 1, length.out = n + 1), mean = mu, sd = sd)
-  breaks[c(1, n + 1)] <- c(-Inf, Inf)
+#' table(rlikert(200, items = 7, mu = 0, sd = 1))
+#' @export
+rlikert <- function(n = 100, items = 5, mu = 0, sd = 1) {
+  z <- stats::rnorm(n, mu, sd)
+  norm2likert(z, items = items)
+}
+
+#' Convert Normal to Likert Scale
+#'
+#' @param x Numeric vector (latent normal values).
+#' @param items Integer. Number of scale points.
+#' @return Integer vector with values in `1:items`.
+#' @export
+norm2likert <- function(x, items = 5) {
+  breaks <- stats::qnorm(seq(0, 1, length.out = items + 1))
+  breaks[1]           <- -Inf
+  breaks[items + 1]   <-  Inf
   as.integer(cut(x, breaks = breaks, labels = FALSE))
 }
 
-#' Simulate random Likert-scale data
+#' Convert Likert to Normal
+#' @param x Integer vector of Likert responses.
+#' @param items Integer. Number of scale points.
+#' @return Numeric vector of approximately normal values.
+#' @export
+likert2norm <- function(x, items = 5) {
+  breaks <- seq(0, 1, length.out = items + 1)
+  p <- (breaks[x] + breaks[x + 1]) / 2
+  stats::qnorm(p)
+}
+
+#' Simulate Multiple Correlated Distributions (NORTA)
 #'
-#' Generates Likert responses by drawing from a normal distribution and
-#' binning via [norm2likert()]. Supports correlated multi-item scales.
+#' @description
+#' Generate correlated data from arbitrary marginal distributions using the
+#' Normal-to-Anything (NORTA) approach: simulate correlated normals, then
+#' convert each column's marginal to the desired distribution.
 #'
 #' @param n Integer. Number of observations.
-#' @param items Integer. Number of items (default `1`).
-#' @param likert_n Integer. Number of Likert categories (default `5`).
-#' @param mu Numeric scalar or vector of latent means (one per item).
-#' @param sd Numeric scalar or vector of latent SDs.
-#' @param r Correlation structure among items (scalar, triangle, or matrix).
-#' @param seed Optional integer seed.
-#' @return A data frame (or integer vector if `items = 1`) of Likert responses.
-#' @export
-#' @examples
-#' # Single item, 100 respondents
-#' rlikert(100, likert_n = 7)
+#' @param dist Named list where each element is a list with elements:
+#'   \itemize{
+#'     \item \code{dist}: character string naming the marginal distribution,
+#'       e.g. \code{"beta"}, \code{"pois"}, \code{"likert"}, \code{"norm"},
+#'       \code{"gamma"}, \code{"binom"}, \code{"unif"}, \code{"trunc"}.
+#'     \item Additional named arguments passed to the corresponding
+#'       \code{norm2X()} function (e.g. \code{shape1 = 2, shape2 = 5}
+#'       for \code{"beta"}).
+#'   }
+#' @param r Correlation specification (scalar, triangle vector, or matrix).
+#' @param mu Numeric vector of standard-normal means (default 0 for all).
+#' @param empirical Logical. Enforce exact inter-variable correlations in the
+#'   latent normal space.
 #'
-#' # 3-item scale, moderately correlated
-#' df <- rlikert(200, items = 3, r = .5, likert_n = 5)
+#' @return A data frame with columns named according to `dist`.
+#'
+#' @examples
+#' df <- rmulti(
+#'   n    = 200,
+#'   dist = list(
+#'     score = list(dist = "norm",   mu = 50, sd = 10),
+#'     count = list(dist = "pois",   lambda = 5),
+#'     prop  = list(dist = "beta",   shape1 = 2, shape2 = 5),
+#'     rating = list(dist = "likert", items = 7)
+#'   ),
+#'   r = 0.4
+#' )
 #' head(df)
-rlikert <- function(n, items = 1, likert_n = 5, mu = 0, sd = 1, r = 0, seed = NULL) {
-  if (!is.null(seed)) set.seed(seed)
-  mu <- recycle_vec(mu, items, "mu")
-  sd <- recycle_vec(sd, items, "sd")
-
-  normals <- rnorm_multi(n, vars = items, mu = mu, sd = sd, r = r)
-  out     <- lapply(seq_len(items), function(i) norm2likert(normals[[i]], n = likert_n))
-  out_df  <- as.data.frame(setNames(out, paste0("item", seq_len(items))))
-  if (items == 1) return(out_df[[1]])
-  out_df
-}
-
-#' Density function for the Likert distribution
-#' @param x Integer values at which to evaluate.
-#' @param n Number of categories.
-#' @param mu Latent mean.
-#' @param sd Latent SD.
-#' @return Numeric vector of probabilities.
 #' @export
-dlikert <- function(x, n = 5, mu = 0, sd = 1) {
-  breaks <- qnorm(seq(0, 1, length.out = n + 1), mean = mu, sd = sd)
-  breaks[c(1, n + 1)] <- c(-Inf, Inf)
-  vapply(x, function(xi) {
-    if (!xi %in% seq_len(n)) return(0)
-    pnorm(breaks[xi + 1], mu, sd) - pnorm(breaks[xi], mu, sd)
-  }, numeric(1))
-}
+rmulti <- function(n = 100, dist, r = 0, mu = 0, empirical = FALSE) {
+  if (!is.list(dist)) stop("`dist` must be a named list.", call. = FALSE)
+  k <- length(dist)
+  if (k < 2) stop("`dist` must have at least 2 elements.", call. = FALSE)
 
-#' CDF for the Likert distribution
-#' @inheritParams dlikert
-#' @return Cumulative probabilities.
-#' @export
-plikert <- function(x, n = 5, mu = 0, sd = 1) {
-  cumsum(dlikert(seq_len(n), n, mu, sd))[pmin(pmax(as.integer(x), 0), n)]
-}
+  # Simulate latent normals
+  z <- rnorm_forge(n, vars = k, mu = rep_len(mu, k), sd = 1, r = r,
+                    var_names = names(dist), empirical = empirical)
 
-#' Quantile function for the Likert distribution
-#' @param p Probabilities.
-#' @inheritParams dlikert
-#' @return Integer quantiles.
-#' @export
-qlikert <- function(p, n = 5, mu = 0, sd = 1) {
-  cum_p <- c(0, cumsum(dlikert(seq_len(n), n, mu, sd)))
-  vapply(p, function(pi) {
-    idx <- findInterval(pi, cum_p, rightmost.closed = TRUE)
-    as.integer(pmin(pmax(idx, 1), n))
-  }, integer(1))
+  # Convert each column
+  out <- as.data.frame(lapply(names(dist), function(nm) {
+    spec <- dist[[nm]]
+    d    <- spec$dist
+    args <- spec[setdiff(names(spec), "dist")]
+    args$x <- z[[nm]]
+
+    conv_fn <- switch(d,
+      norm   = function(x, mu = 0, sd = 1, ...) x * sd + mu,
+      beta   = norm2beta,
+      binom  = norm2binom,
+      gamma  = norm2gamma,
+      pois   = norm2pois,
+      unif   = norm2unif,
+      likert = norm2likert,
+      trunc  = norm2trunc,
+      stop(sprintf("Unknown distribution '%s'.", d), call. = FALSE)
+    )
+    do.call(conv_fn, args)
+  }))
+  names(out) <- names(dist)
+  out
 }
