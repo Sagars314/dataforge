@@ -233,7 +233,12 @@ forge_design <- function(within  = list(),
   if (.opt("verbose")) .print_design(within, between, n_vec, mu_mat, sd_mat)
 
   # ---- long format ----
-  if (long) df <- wide2long(df, within = names(within), dv = dv)
+  if (long) {
+    des_save <- attr(df, "dataforge_design")
+    df <- wide2long(df, within = names(within), dv = dv)
+    attr(df, "dataforge_design") <- des_save
+    class(df) <- c("forge_data", "data.frame")
+  }
 
   # ---- plot ----
   # if (plot && length(within) + length(between) > 0) {

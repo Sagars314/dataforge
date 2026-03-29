@@ -87,6 +87,17 @@ plot_design <- function(data, x = NULL, color = NULL, facet = NULL,
 
   if (is.null(x)) stop("No suitable x variable found. Specify `x`.", call. = FALSE)
 
+  # Reorder factor levels if design metadata exists
+  if (!is.null(des)) {
+    if (x %in% names(des$within)) {
+      correct_order <- names(des$within[[x]])
+      data[[x]] <- factor(data[[x]], levels = correct_order)
+    } else if (x %in% names(des$between)) {
+      correct_order <- names(des$between[[x]])
+      data[[x]] <- factor(data[[x]], levels = correct_order)
+    }
+  }
+
   # Build aes using strings (no rlang)
   base_aes <- ggplot2::aes_string(x = x, y = dv)
   if (!is.null(color)) {

@@ -65,11 +65,17 @@ wide2long <- function(data, within = NULL, dv = "y", id = "id",
 
   # Parse within column names to reconstruct factor columns
   if (!is.null(within) && length(within) > 0) {
+    des <- attr(data, "dataforge_design")
     parts <- strsplit(long[[".within_key"]], sep, fixed = TRUE)
     for (i in seq_along(within)) {
-      long[[within[i]]] <- factor(vapply(parts, function(p)
-        if (length(p) >= i) p[[i]] else NA_character_,
-        character(1)))
+      fac_name <- within[i]
+      levs <- if (!is.null(des) && fac_name %in% names(des$within))
+        names(des$within[[fac_name]]) else NULL
+
+      long[[fac_name]] <- factor(
+        vapply(parts, function(p) if (length(p) >= i) p[[i]] else NA_character_, character(1)),
+        levels = levs
+      )
     }
   } else {
     long[["within"]] <- long[[".within_key"]]
