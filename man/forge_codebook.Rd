@@ -4,7 +4,12 @@
 \alias{forge_codebook}
 \title{Generate a Codebook from a Data Frame}
 \usage{
-forge_codebook(data, meta = list(), output = c("df", "json", "print"))
+forge_codebook(
+  data,
+  meta = list(),
+  output = c("df", "json", "print"),
+  max_levels = 5L
+)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -15,25 +20,43 @@ should be a named list with optional fields: \code{description}, \code{units},
 
 \item{output}{One of \code{"df"} (a tidy data frame), \code{"json"} (a JSON string),
 or \code{"print"} (formatted console output).}
+
+\item{max_levels}{Integer. Maximum number of unique levels to display for
+factor/character columns before truncating with "...". Default \code{5}.}
 }
 \value{
 Depends on \code{output}:
 \itemize{
-\item \code{"df"}: A data frame.
+\item \code{"df"}: A data frame with columns \code{column}, \code{type}, \code{n_valid},
+\code{n_missing}, \code{pct_missing}, \code{n_unique}, \code{description}, \code{units},
+\code{summary}.
 \item \code{"json"}: A character string (JSON).
 \item \code{"print"}: The data frame, invisibly (also prints to console).
 }
 }
 \description{
 Creates a structured codebook (data dictionary) summarising each column in a
-data frame: data type, number of missing values, range or unique values, and
-summary statistics for numeric variables.
+data frame: data type, number and percentage of missing values, number of
+unique values, and summary statistics appropriate to the column type:
+\itemize{
+\item \strong{Numeric}: mean, sd, median, IQR, min, max
+\item \strong{Logical}: TRUE/FALSE counts and percentages
+\item \strong{Date/POSIXt}: min, max, and number of unique dates
+\item \strong{Factor/Character}: top-N most frequent levels with counts and
+percentages; truncated with "..." when cardinality exceeds \code{max_levels}
+}
 }
 \examples{
 df <- forge_design(
-  within = list(time = c("pre","post")),
+  within = list(time = c("pre", "post")),
   n = 30, mu = c(10, 13), sd = 2, r = 0.5, plot = FALSE
 )
 forge_codebook(df, output = "print")
+
+# With metadata
+forge_codebook(df,
+  meta = list(time = list(description = "Measurement occasion", scale = "nominal")),
+  output = "print"
+)
 
 }
