@@ -1,6 +1,3 @@
-# internal package environment
-.dataforge_env <- new.env(parent = emptyenv())
-
 .onLoad <- function(libname, pkgname) {
   op <- options()
 
@@ -18,7 +15,6 @@
   invisible()
 }
 
-# internal accessor
 .opt <- function(name) {
   getOption(paste0("dataforge.", name))
 }

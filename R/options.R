@@ -1,13 +1,3 @@
-# Internal environment to store package-level options
-# .dataforge_env <- new.env(parent = emptyenv())
-# .dataforge_env$options <- list(
-#   verbose   = TRUE,
-#   plot      = TRUE,
-#   long      = FALSE,
-#   seed      = NULL,
-#   sep       = "_"
-# )
-
 #' Set or Get Global dataforge Options
 #'
 #' @description
@@ -41,23 +31,34 @@
 #'
 #' @export
 dataforge_options <- function(verbose = NULL, plot = NULL, long = NULL,
-                               sep = NULL, seed = NULL) {
-  prev <- .dataforge_env$options
+                              sep = NULL, seed = NULL) {
+  option_names <- c("verbose", "plot", "long", "seed", "sep")
+  option_keys <- paste0("dataforge.", option_names)
+  names(option_keys) <- option_names
 
-  if (!is.null(verbose)) .dataforge_env$options$verbose <- verbose
-  if (!is.null(plot))    .dataforge_env$options$plot    <- plot
-  if (!is.null(long))    .dataforge_env$options$long    <- long
-  if (!is.null(sep))     .dataforge_env$options$sep     <- sep
-  if (!is.null(seed))    .dataforge_env$options$seed    <- seed
+  current <- options()[option_keys]
+  prev <- unname(current)
+  names(prev) <- option_names
+
+  updates <- list(
+    verbose = verbose,
+    plot = plot,
+    long = long,
+    seed = seed,
+    sep = sep
+  )
 
   # Called with no arguments — just return current options
   if (all(c(is.null(verbose), is.null(plot), is.null(long),
             is.null(sep), is.null(seed)))) {
-    return(.dataforge_env$options)
+    return(prev)
+  }
+
+  to_set <- updates[!vapply(updates, is.null, logical(1))]
+  if (length(to_set) > 0) {
+    names(to_set) <- option_keys[names(to_set)]
+    options(to_set)
   }
 
   invisible(prev)
 }
-
-# Internal accessor used throughout the package
-# .opt <- function(name) .dataforge_env$options[[name]]
