@@ -39,6 +39,8 @@ Default \code{"y"}.}
 character vector of colours.}
 
 \item{title}{Character. Plot title. Optional.}
+
+\item{reverse_x}{Logical; whether to reverse the x-axis order.}
 }
 \value{
 A \code{ggplot2} object, or \code{NULL} invisibly if ggplot2 is not installed.

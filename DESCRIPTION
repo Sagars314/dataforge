@@ -1,6 +1,6 @@
 Package: dataforge
 Title: Simulate Structured Data for Factorial and Mixed Designs
-Version: 0.1.1
+Version: 0.1.2
 Date: 2026-03-13
 Authors@R:
     person(
@@ -24,20 +24,12 @@ RoxygenNote: 7.3.3
 Depends: 
     R (>= 3.6.0)
 Imports:
-    MASS,
-    Matrix,
-    dplyr,
-    tidyr,
-    tidyselect,
-    ggplot2,
-    purrr,
-    rlang,
-    glue,
-    lifecycle,
-    jsonlite,
     stats,
     utils,
-    methods
+    Matrix,
+    ggplot2,
+    rlang,
+    jsonlite
 Suggests:
     testthat (>= 3.0.0),
     knitr,

@@ -1,3 +1,5 @@
 ^dataforge\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^_pkgdown\.yml$
+^data-raw$

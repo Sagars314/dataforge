@@ -179,9 +179,9 @@ check_design <- function(within = list(), between = list(),
   cat(sprintf(
     "Design OK:\n  Within cells : %d (%s)\n  Between cells: %d (%s)\n  Total cells  : %d\n",
     n_within,
-    if (length(within) == 0) "—" else paste(sapply(within, length), collapse = " x "),
+    if (length(within) == 0) "-" else paste(sapply(within, length), collapse = " x "),
     n_between,
-    if (length(between) == 0) "—" else paste(sapply(between, length), collapse = " x "),
+    if (length(between) == 0) "-" else paste(sapply(between, length), collapse = " x "),
     n_cells
   ))
   invisible(TRUE)

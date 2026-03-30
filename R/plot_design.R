@@ -18,6 +18,7 @@
 #' @param palette Character. A `ggplot2`-compatible colour palette name, or a
 #'   character vector of colours.
 #' @param title Character. Plot title. Optional.
+#' @param reverse_x Logical; whether to reverse the x-axis order.
 #'
 #' @return A `ggplot2` object, or `NULL` invisibly if ggplot2 is not installed.
 #'
