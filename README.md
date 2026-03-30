@@ -1,8 +1,6 @@
 # dataforge <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/example/dataforge/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/example/dataforge/actions/workflows/R-CMD-check.yaml)
-[![CRAN status](https://www.r-pkg.org/badges/version/dataforge)](https://CRAN.R-project.org/package=dataforge)
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
@@ -16,15 +14,14 @@
 - 🧪 **Pipeline testing** — unit-test analyses on data with known properties
 - 🎲 **Exploring methods** — study estimator behaviour under controlled conditions
 
+
 ## Installation
+The development version from
+[GitHub](https://github.com/Sagars314/dataforge) with:
 
-```r
-# CRAN (once published)
-install.packages("dataforge")
-
-# Development version from GitHub
+``` r
 # install.packages("devtools")
-devtools::install_github("example/dataforge")
+devtools::install_github("Sagars314/dataforge")
 ```
 
 ## Quick overview
@@ -188,28 +185,6 @@ d <- add_contrast(d, "group",     contrasts = "treatment", base = "control")
 |---------|-------------|
 | `load_exam_scores()` | Simulated pre/post exam scores (240 students) |
 | `load_survey_responses()` | Simulated 5-item Likert survey (300 respondents) |
-
----
-
-## Comparison with `faux`
-
-`dataforge` was inspired by the excellent [`faux`](https://github.com/scienceverse/faux)
-package by Lisa DeBruine. Key similarities and differences:
-
-| Feature | `dataforge` | `faux` |
-|---------|-------------|--------|
-| Factorial design sim | ✅ `forge_design()` | ✅ `sim_design()` |
-| Simulate from data | ✅ `forge_df()` | ✅ `sim_df()` |
-| Correlated normals | ✅ `rnorm_multi()` | ✅ `rnorm_multi()` |
-| Mixed effects pipeline | ✅ `add_random()` etc. | ✅ `add_random()` etc. |
-| Contrasts | ✅ 6 coding schemes | ✅ 6 coding schemes |
-| Distribution conversions | ✅ `norm2*` family | ✅ `norm2*` family |
-| Likert scale | ✅ `rlikert()` | ✅ `rlikert()` |
-| Messy data | ✅ `make_missing()` | ✅ `messy()` |
-| NORTA multi-dist | ✅ `rmulti()` | ✅ `rmulti()` |
-| Codebook generation | ❌ | ✅ `codebook()` |
-| Interactive design | ❌ | ✅ `interactive_design()` |
-| Outlier injection | ✅ `add_outliers()` | ❌ |
 
 ---
 
