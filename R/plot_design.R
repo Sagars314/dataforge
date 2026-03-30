@@ -99,14 +99,31 @@ plot_design <- function(data, x = NULL, color = NULL, facet = NULL,
   }
 
   # Build aes using strings (no rlang)
-  base_aes <- ggplot2::aes_string(x = x, y = dv)
+  # base_aes <- ggplot2::aes_string(x = x, y = dv)
+  # if (!is.null(color)) {
+  #   col_aes <- ggplot2::aes_string(colour = color, fill = color)
+  #   full_aes <- c(base_aes, col_aes)
+  #   class(full_aes) <- "uneval"
+  # } else {
+  #   full_aes <- base_aes
+  # }
+
+  base_aes <- ggplot2::aes(
+    x = .data[[x]],
+    y = .data[[dv]]
+  )
+
   if (!is.null(color)) {
-    col_aes <- ggplot2::aes_string(colour = color, fill = color)
-    full_aes <- c(base_aes, col_aes)
-    class(full_aes) <- "uneval"
+    full_aes <- ggplot2::aes(
+      x = .data[[x]],
+      y = .data[[dv]],
+      colour = .data[[color]],
+      fill = .data[[color]]
+    )
   } else {
     full_aes <- base_aes
   }
+
 
   # optionally reverse x-axis order
   if (reverse_x && !is.null(x) && x %in% names(data)) {
@@ -136,7 +153,8 @@ plot_design <- function(data, x = NULL, color = NULL, facet = NULL,
     if (!is.null(color)) {
       p <- p + ggplot2::stat_summary(
         fun = mean, geom = "line",
-        mapping = ggplot2::aes_string(group = color),
+        # mapping = ggplot2::aes_string(group = color),
+        mapping = ggplot2::aes(group = .data[[color]]),
         position = dodge)
     } else {
       p <- p + ggplot2::stat_summary(fun = mean, geom = "line",
