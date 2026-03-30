@@ -1,6 +1,6 @@
 Package: dataforge
 Title: Simulate Structured Data for Factorial and Mixed Designs
-Version: 0.1.0
+Version: 0.1.1
 Date: 2026-03-13
 Authors@R:
     person(
