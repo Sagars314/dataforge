@@ -283,7 +283,20 @@ forge_design <- function(within  = list(),
     } else {
 
       # let plot_design auto-detect structure from metadata
-      p <- plot_design(df)
+      # p <- plot_design(df)
+      # wide format — explicitly pass x and color instead of relying on auto-detect
+      xvar <- if (length(within) > 0) {
+        names(within)[1]          # within design: x = first within factor
+      } else {
+        names(between)[1]         # between-only: x = first between factor
+      }
+
+      p <- plot_design(
+        df,
+        x      = xvar,
+        color  = if (length(between) > 0 && length(within) > 0) names(between)[1] else NULL,
+        dv     = dv
+      )
 
     }
 
