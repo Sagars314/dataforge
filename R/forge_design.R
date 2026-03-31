@@ -230,7 +230,8 @@ forge_design <- function(within  = list(),
 
   # ---- verbose ----
   #' @param verbose Logical. Print design summary.
-  if (.opt("verbose")) .print_design(within, between, n_vec, mu_mat, sd_mat)
+  # if (.opt("verbose")) .print_design(within, between, n_vec, mu_mat, sd_mat)
+  if (verbose) .print_design(within, between, n_vec, mu_mat, sd_mat)
 
   # ---- long format ----
   if (long) {
