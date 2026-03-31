@@ -18,11 +18,16 @@
 ## Installation
 The development version from
 [GitHub](https://github.com/Sagars314/dataforge) with:
-
 ``` r
 # install.packages("devtools")
 devtools::install_github("Sagars314/dataforge")
 ```
+
+Using `pak` (recommended)
+```r
+install.packages("pak")
+pak::pak("Sagars314/dataforge")
+
 
 ## Quick overview
 

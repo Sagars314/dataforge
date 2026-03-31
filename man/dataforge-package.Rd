@@ -69,6 +69,7 @@ MIT License. See LICENSE file for details.
 Useful links:
 \itemize{
   \item \url{https://github.com/Sagars314/dataforge}
+  \item \url{https://youtu.be/nfI1HzHU7DM}
   \item Report bugs at \url{https://github.com/Sagars314/dataforge/issues}
 }
 

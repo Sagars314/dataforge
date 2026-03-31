@@ -39,6 +39,7 @@ Suggests:
     magrittr
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-URL: https://github.com/Sagars314/dataforge
+URL: https://github.com/Sagars314/dataforge,
+    https://youtu.be/nfI1HzHU7DM
 BugReports: https://github.com/Sagars314/dataforge/issues
 LazyData: true

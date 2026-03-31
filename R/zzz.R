@@ -23,8 +23,8 @@
   packageStartupMessage(paste(
     "\n************",
     "Welcome to dataforge.",
-    "https://github.com/Sagars314/dataforge",
-    "- Get and set global package options with: dataforge_options()",
+    "YouTube : https://youtu.be/nfI1HzHU7DM",
+    "Github : https://github.com/Sagars314/dataforge",
     "************",
     sep = "\n"
   ))
