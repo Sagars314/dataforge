@@ -1,5 +1,4 @@
 # dataforge <img src="man/figures/logo.png" align="right" height="139" alt="" />
-![DataForge Logo](man/figures/logo.png)
 
 <!-- badges: start -->
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
